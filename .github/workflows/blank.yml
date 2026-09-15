@@ -1,0 +1,41 @@
+# ==============================================================================
+# КОНФИГУРАЦИЯ ГЕНЕРАЦИИ (Описание видео)
+# ==============================================================================
+PROMPT = "A cinematic shot of a futuristic cyber-punk city during a neon rainstorm, flying cars cruising between skyscrapers, reflection on wet asphalt, photorealistic, 8k resolution"
+OUTPUT_NAME = "cyberpunk_city.mp4"
+MODEL_TYPE = "Wan2.2-T2V-A14B"
+
+import os
+
+# 1. Системные зависимости (выполнять, если запускаетесь в чистом Docker-контейнере)
+!apt-get update && apt-get install -y ffmpeg libsm6 libxext6 -y
+
+# 2. Клонирование репозитория
+if not os.path.exists("Wan2.2"):
+    !git clone https://github.com
+
+%cd Wan2.2
+
+# 3. Установка Python пакетов
+!pip install -r requirements.txt --quiet
+!pip install huggingface_hub --quiet
+
+# 4. Скачивание весов
+from huggingface_hub import snapshot_download
+model_dir = f"../models/{MODEL_TYPE}"
+if not os.path.exists(model_dir):
+    print(f"Загрузка весов {MODEL_TYPE}...")
+    snapshot_download(repo_id=f"Wan-AI/{MODEL_TYPE}", local_dir=model_dir)
+
+# 5. Запуск инференса Wan2.2
+!python generate.py \
+    --model_type "t2v" \
+    --ckpt_dir {model_dir} \
+    --prompt "{PROMPT}" \
+    --image_size "832x480" \
+    --frame_num 81 \
+    --offload_model True \
+    --t5_cpu \
+    --save_file "../{OUTPUT_NAME}"
+
+print(f"\n Видео успешно сохранено по пути: {os.path.abspath('../' + OUTPUT_NAME)}")
