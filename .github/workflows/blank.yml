@@ -1,15 +1,14 @@
 name: Generate Video with Wan2.2
 
-# Робот будет запускаться каждый раз, когда вы нажимаете кнопку запуска на сайте
 on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: 'Опишите, что должно быть на видео (на английском):'
+        description: 'Опишите видео (на английском):'
         required: true
         default: 'A majestic dragon flying over a medieval castle, highly detailed, 4k'
       model_type:
-        description: 'Выберите модель (Рекомендуется 5B для скорости):'
+        description: 'Выберите модель:'
         required: true
         default: 'Wan2.2-TI2V-5B'
         type: choice
@@ -19,27 +18,22 @@ on:
 
 jobs:
   build-and-generate:
-    # Запускаем на сервере с Linux
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Скачиваем ваш репозиторий
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. Устанавливаем Python
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-state: '3.10'
+        python-version: '3.10'
 
-    # 3. Устанавливаем системные программы (FFmpeg для видео)
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg libsm6 libxext6
 
-    # 4. Скачиваем официальный код Wan2.2
     - name: Clone Wan2.2 official repo
       run: |
         git clone https://github.com
@@ -48,13 +42,11 @@ jobs:
         pip install -r requirements.txt
         pip install huggingface_hub
 
-    # 5. Скачиваем веса нейросети из Hugging Face
     - name: Download Model Weights
       run: |
         cd Wan2.2
         python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Wan-AI/${{ github.event.inputs.model_type }}', local_dir='../models/${{ github.event.inputs.model_type }}')"
 
-    # 6. Запускаем генерацию видео по вашему описанию
     - name: Generate Video
       run: |
         cd Wan2.2
@@ -68,7 +60,6 @@ jobs:
           --t5_cpu \
           --save_file "../generated_video.mp4"
 
-    # 7. Сохраняем готовое видео, чтобы вы могли его скачать
     - name: Upload Generated Video
       uses: actions/upload-artifact@v4
       with:
