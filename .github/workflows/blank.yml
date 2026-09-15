@@ -1,41 +1,77 @@
-# ==============================================================================
-# КОНФИГУРАЦИЯ ГЕНЕРАЦИИ (Описание видео)
-# ==============================================================================
-PROMPT = "A cinematic shot of a futuristic cyber-punk city during a neon rainstorm, flying cars cruising between skyscrapers, reflection on wet asphalt, photorealistic, 8k resolution"
-OUTPUT_NAME = "cyberpunk_city.mp4"
-MODEL_TYPE = "Wan2.2-T2V-A14B"
+name: Generate Video with Wan2.2
 
-import os
+# Робот будет запускаться каждый раз, когда вы нажимаете кнопку запуска на сайте
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Опишите, что должно быть на видео (на английском):'
+        required: true
+        default: 'A majestic dragon flying over a medieval castle, highly detailed, 4k'
+      model_type:
+        description: 'Выберите модель (Рекомендуется 5B для скорости):'
+        required: true
+        default: 'Wan2.2-TI2V-5B'
+        type: choice
+        options:
+        - 'Wan2.2-TI2V-5B'
+        - 'Wan2.2-T2V-A14B'
 
-# 1. Системные зависимости (выполнять, если запускаетесь в чистом Docker-контейнере)
-!apt-get update && apt-get install -y ffmpeg libsm6 libxext6 -y
+jobs:
+  build-and-generate:
+    # Запускаем на сервере с Linux
+    runs-on: ubuntu-latest
 
-# 2. Клонирование репозитория
-if not os.path.exists("Wan2.2"):
-    !git clone https://github.com
+    steps:
+    # 1. Скачиваем ваш репозиторий
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-%cd Wan2.2
+    # 2. Устанавливаем Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-state: '3.10'
 
-# 3. Установка Python пакетов
-!pip install -r requirements.txt --quiet
-!pip install huggingface_hub --quiet
+    # 3. Устанавливаем системные программы (FFmpeg для видео)
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg libsm6 libxext6
 
-# 4. Скачивание весов
-from huggingface_hub import snapshot_download
-model_dir = f"../models/{MODEL_TYPE}"
-if not os.path.exists(model_dir):
-    print(f"Загрузка весов {MODEL_TYPE}...")
-    snapshot_download(repo_id=f"Wan-AI/{MODEL_TYPE}", local_dir=model_dir)
+    # 4. Скачиваем официальный код Wan2.2
+    - name: Clone Wan2.2 official repo
+      run: |
+        git clone https://github.com
+        cd Wan2.2
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install huggingface_hub
 
-# 5. Запуск инференса Wan2.2
-!python generate.py \
-    --model_type "t2v" \
-    --ckpt_dir {model_dir} \
-    --prompt "{PROMPT}" \
-    --image_size "832x480" \
-    --frame_num 81 \
-    --offload_model True \
-    --t5_cpu \
-    --save_file "../{OUTPUT_NAME}"
+    # 5. Скачиваем веса нейросети из Hugging Face
+    - name: Download Model Weights
+      run: |
+        cd Wan2.2
+        python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Wan-AI/${{ github.event.inputs.model_type }}', local_dir='../models/${{ github.event.inputs.model_type }}')"
 
-print(f"\n Видео успешно сохранено по пути: {os.path.abspath('../' + OUTPUT_NAME)}")
+    # 6. Запускаем генерацию видео по вашему описанию
+    - name: Generate Video
+      run: |
+        cd Wan2.2
+        python generate.py \
+          --model_type "t2v" \
+          --ckpt_dir "../models/${{ github.event.inputs.model_type }}" \
+          --prompt "${{ github.event.inputs.prompt }}" \
+          --image_size "832x480" \
+          --frame_num 81 \
+          --offload_model True \
+          --t5_cpu \
+          --save_file "../generated_video.mp4"
+
+    # 7. Сохраняем готовое видео, чтобы вы могли его скачать
+    - name: Upload Generated Video
+      uses: actions/upload-artifact@v4
+      with:
+        name: wan2-generated-video
+        path: generated_video.mp4
+        retention-days: 5
