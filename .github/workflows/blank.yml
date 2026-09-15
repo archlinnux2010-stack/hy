@@ -1,68 +1,41 @@
-name: Generate Video with Wan2.2
+name: Wan2 Video Generator
 
 on:
   workflow_dispatch:
     inputs:
-      prompt:
-        description: 'Опишите видео (на английском):'
+      video_prompt:
+        description: 'Опишите видео на английском'
         required: true
-        default: 'A majestic dragon flying over a medieval castle, highly detailed, 4k'
-      model_type:
-        description: 'Выберите модель:'
-        required: true
-        default: 'Wan2.2-TI2V-5B'
-        type: choice
-        options:
-        - 'Wan2.2-TI2V-5B'
-        - 'Wan2.2-T2V-A14B'
+        default: 'A futuristic cyber-punk city during a neon rainstorm, 8k resolution'
 
 jobs:
-  build-and-generate:
+  generate:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    - name: Install system dependencies
+    - name: Install System Pack
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg libsm6 libxext6
 
-    - name: Clone Wan2.2 official repo
+    - name: Run Wan-Video Code
       run: |
-        git clone https://github.com/Wan-Video/Wan2.2.git
+        git clone https://github.com
         cd Wan2.2
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install huggingface_hub
+        pip install -r requirements.txt --quiet
+        pip install huggingface_hub --quiet
+        python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Wan-AI/Wan2.2-TI2V-5B', local_dir='../model')"
+        python generate.py --model_type "t2v" --ckpt_dir "../model" --prompt "${{ github.event.inputs.video_prompt }}" --image_size "832x480" --frame_num 81 --offload_model True --t5_cpu --save_file "../result.mp4"
 
-    - name: Download Model Weights
-      run: |
-        cd Wan2.2
-        python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Wan-AI/${{ github.event.inputs.model_type }}', local_dir='../models/${{ github.event.inputs.model_type }}')"
-
-    - name: Generate Video
-      run: |
-        cd Wan2.2
-        python generate.py \
-          --model_type "t2v" \
-          --ckpt_dir "../models/${{ github.event.inputs.model_type }}" \
-          --prompt "${{ github.event.inputs.prompt }}" \
-          --image_size "832x480" \
-          --frame_num 81 \
-          --offload_model True \
-          --t5_cpu \
-          --save_file "../generated_video.mp4"
-
-    - name: Upload Generated Video
+    - name: Save Video Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: wan2-generated-video
-        path: generated_video.mp4
-        retention-days: 5
+        name: my-generated-video
+        path: result.mp4
