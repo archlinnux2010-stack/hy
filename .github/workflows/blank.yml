@@ -36,7 +36,7 @@ jobs:
 
     - name: Clone Wan2.2 official repo
       run: |
-        git clone https://github.com
+        git clone https://github.com/Wan-Video/Wan2.2.git
         cd Wan2.2
         pip install --upgrade pip
         pip install -r requirements.txt
